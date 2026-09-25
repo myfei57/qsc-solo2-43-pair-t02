@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>line state</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #11161d; color: #dde5ee; }
+    header { padding: 14px 20px; background: #1b2330; border-bottom: 1px solid #2b3644; }
+    nav a { color: #7fb2ff; margin-right: 14px; text-decoration: none; }
+    main { padding: 18px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    section { background: #1b2330; border: 1px solid #2b3644; border-radius: 6px; padding: 12px 14px; }
+    h2 { margin: 0 0 8px; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: #9fb2c8; }
+    dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 14px; }
+    dt { color: #8697ab; }
+    dd { margin: 0; text-align: right; }
+    .lamp { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; background: #4c5766; }
+    .on { background: #48d07a; }
+    .warn { background: #e0a13a; }
+    .bad { background: #e05a5a; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="/overview">overview</a>
+      <a href="/operations">operations</a>
+      <a href="/audit">audit</a>
+      <a href="/healthz">health</a>
+    </nav>
+  </header>
+  <main>
+    <section>
+      <h2>machine</h2>
+      <dl id="machine"></dl>
+    </section>
+    <section>
+      <h2>store</h2>
+      <dl id="store"></dl>
+    </section>
+    <section>
+      <h2>alarms</h2>
+      <ul id="alarms"></ul>
+    </section>
+  </main>
+  <script>
+    function fill(target, values) {
+      const node = document.getElementById(target);
+      node.innerHTML = "";
+      Object.keys(values).forEach(function (key) {
+        const dt = document.createElement("dt");
+        dt.textContent = key;
+        const dd = document.createElement("dd");
+        dd.textContent = String(values[key]);
+        node.appendChild(dt);
+        node.appendChild(dd);
+      });
+    }
+    function refresh() {
+      fetch("/api/state").then(function (r) { return r.json(); }).then(function (state) {
+        fill("machine", {
+          prime_mover: state.engine,
+          line_breaker: state.breaker,
+          oil_pressure_bar: state.lube_pressure_bar,
+          excitation_v: state.excitation_v,
+          load_kw: state.load_kw,
+          online: state.online
+        });
+      });
+      fetch("/api/meta").then(function (r) { return r.json(); }).then(function (meta) {
+        fill("store", {
+          records: meta.store.records,
+          visible: meta.store.visible,
+          pending: meta.store.pending,
+          watermark: meta.store.watermark,
+          clock: meta.clock
+        });
+      });
+      fetch("/api/state/alarms?scope=current").then(function (r) { return r.json(); }).then(function (data) {
+        const list = document.getElementById("alarms");
+        list.innerHTML = "";
+        if (!data.alarms.length) {
+          const item = document.createElement("li");
+          item.textContent = "none";
+          list.appendChild(item);
+          return;
+        }
+        data.alarms.forEach(function (alarm) {
+          const item = document.createElement("li");
+          item.textContent = alarm.alarm + " @ " + alarm.tick;
+          list.appendChild(item);
+        });
+      });
+    }
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>

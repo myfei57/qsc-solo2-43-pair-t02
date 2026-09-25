@@ -1,0 +1,16 @@
+{
+  "lube.low_pressure_bar": 1.2,
+  "lube.established_pressure_bar": 2.4,
+  "lube.latch_clear_margin_bar": 0.3,
+  "engine.crank_window_ticks": 8,
+  "sync.phase_window_deg": 6.0,
+  "sync.freq_window_hz": 0.12,
+  "sync.baseline_ttl_ticks": 40,
+  "breaker.close_ticket_ttl_ticks": 10,
+  "gov.target_hz": 50.0,
+  "gov.freq_window_hz": 0.15,
+  "load.unit_capacity_kw": 400.0,
+  "load.reverse_power_limit_kw": 25.0,
+  "avr.excite_voltage_v": 400.0,
+  "fuel.tank_capacity_l": 900.0
+}

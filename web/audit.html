@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>line audit</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #11161d; color: #dde5ee; }
+    header { padding: 14px 20px; background: #1b2330; border-bottom: 1px solid #2b3644; }
+    nav a { color: #7fb2ff; margin-right: 14px; text-decoration: none; }
+    main { padding: 18px 20px; display: grid; gap: 14px; }
+    section { background: #1b2330; border: 1px solid #2b3644; border-radius: 6px; padding: 12px 14px; }
+    h2 { margin: 0 0 10px; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: #9fb2c8; }
+    form { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+    input { background: #101720; border: 1px solid #2b3644; color: #dde5ee; border-radius: 4px; padding: 5px 7px; }
+    button { background: #2b5fa8; border: 0; color: #fff; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #2b3644; }
+    th { color: #8697ab; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="/overview">overview</a>
+      <a href="/operations">operations</a>
+      <a href="/audit">audit</a>
+    </nav>
+  </header>
+  <main>
+    <section>
+      <h2>filter</h2>
+      <form id="filter">
+        <label for="f-action">action</label>
+        <input id="f-action" name="action">
+        <label for="f-batch">batch</label>
+        <input id="f-batch" name="batch">
+        <button type="submit">apply</button>
+      </form>
+    </section>
+    <section>
+      <h2>entries</h2>
+      <table>
+        <thead>
+          <tr><th>entry</th><th>action</th><th>outcome</th><th>batch</th><th>tick</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+  </main>
+  <script>
+    function load(action, batch) {
+      const query = "?action=" + encodeURIComponent(action) + "&batch=" + encodeURIComponent(batch);
+      fetch("/api/audit" + query).then(function (r) { return r.json(); }).then(function (data) {
+        const rows = document.getElementById("rows");
+        rows.innerHTML = "";
+        data.entries.forEach(function (entry) {
+          const row = document.createElement("tr");
+          [entry.entry, entry.action, entry.outcome, entry.batch, entry.tick].forEach(function (value) {
+            const cell = document.createElement("td");
+            cell.textContent = String(value);
+            row.appendChild(cell);
+          });
+          rows.appendChild(row);
+        });
+      });
+    }
+    document.getElementById("filter").addEventListener("submit", function (event) {
+      event.preventDefault();
+      load(document.getElementById("f-action").value, document.getElementById("f-batch").value);
+    });
+    load("", "");
+  </script>
+</body>
+</html>

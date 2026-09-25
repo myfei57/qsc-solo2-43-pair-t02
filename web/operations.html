@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>line operations</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #11161d; color: #dde5ee; }
+    header { padding: 14px 20px; background: #1b2330; border-bottom: 1px solid #2b3644; }
+    nav a { color: #7fb2ff; margin-right: 14px; text-decoration: none; }
+    main { padding: 18px 20px; display: grid; gap: 14px; }
+    section { background: #1b2330; border: 1px solid #2b3644; border-radius: 6px; padding: 12px 14px; }
+    h2 { margin: 0 0 10px; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: #9fb2c8; }
+    form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+    label { color: #8697ab; font-size: 13px; }
+    input { background: #101720; border: 1px solid #2b3644; color: #dde5ee; border-radius: 4px; padding: 5px 7px; width: 90px; }
+    button { background: #2b5fa8; border: 0; color: #fff; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+    pre { background: #101720; border: 1px solid #2b3644; border-radius: 4px; padding: 10px; overflow: auto; max-height: 220px; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="/overview">overview</a>
+      <a href="/operations">operations</a>
+      <a href="/audit">audit</a>
+    </nav>
+  </header>
+  <main>
+    <section>
+      <h2>start sequence</h2>
+      <form id="start">
+        <label for="start-pressure">oil pressure bar</label>
+        <input id="start-pressure" name="pressure_bar" value="2.6">
+        <button type="submit">run start</button>
+      </form>
+    </section>
+    <section>
+      <h2>parallel sequence</h2>
+      <form id="parallel">
+        <label for="p-batch">batch</label>
+        <input id="p-batch" name="batch" value="B-1">
+        <label for="p-hz">measured hz</label>
+        <input id="p-hz" name="measured_hz" value="50.02">
+        <label for="p-phase">phase deg</label>
+        <input id="p-phase" name="phase_deg" value="1.5">
+        <label for="p-kw">load kw</label>
+        <input id="p-kw" name="load_kw" value="180">
+        <button type="submit">run parallel</button>
+      </form>
+    </section>
+    <section>
+      <h2>stop sequence</h2>
+      <form id="stop">
+        <label for="s-reason">reason</label>
+        <input id="s-reason" name="reason" value="planned stop">
+        <button type="submit">run stop</button>
+      </form>
+    </section>
+    <section>
+      <h2>result</h2>
+      <pre id="result">idle</pre>
+    </section>
+  </main>
+  <script>
+    function collect(form) {
+      const values = {};
+      Array.prototype.forEach.call(form.elements, function (field) {
+        if (!field.name) { return; }
+        const parsed = Number(field.value);
+        values[field.name] = Number.isNaN(parsed) || field.value.trim() === "" ? field.value : parsed;
+      });
+      return values;
+    }
+    function submit(form, name) {
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        fetch("/api/flows/" + name + "/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(collect(form))
+        }).then(function (response) {
+          return response.json().then(function (payload) {
+            document.getElementById("result").textContent = JSON.stringify(
+              { status: response.status, payload: payload }, null, 2);
+          });
+        });
+      });
+    }
+    submit(document.getElementById("start"), "start");
+    submit(document.getElementById("parallel"), "parallel");
+    submit(document.getElementById("stop"), "stop");
+  </script>
+</body>
+</html>
