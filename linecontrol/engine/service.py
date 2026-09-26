@@ -1,12 +1,18 @@
-"""Cranking and starting under the oil pressure gate."""
+"""Cranking and starting under the oil pressure gate.
+
+Order of operations: build oil pressure, clear the low pressure latch,
+crank (bar the unit over), and only then start. Cranking is recorded as its
+own committed record so the machine state visibly leaves ``stopped`` and the
+start gate can prove that the step happened.
+"""
 
 from typing import Any, Dict, List
 
 from ..ns.units import hz_to_rpm
 from ..runtime.errors import OrderViolation
-from ..store.kinds import KIND_ENGINE_START, KIND_ENGINE_STOP
+from ..store.kinds import KIND_ENGINE_CRANK, KIND_ENGINE_START, KIND_ENGINE_STOP
 from .errors import EngineGateClosed, EngineNotRunning
-from .gate import blocker, evaluate
+from .gate import blocker, evaluate, pressure_checks
 
 
 class EngineService:
@@ -23,11 +29,33 @@ class EngineService:
     def running(self) -> bool:
         return self.state() == "running"
 
+    def cranking(self) -> bool:
+        return self._view.cranking()
+
+    def crank_window_ticks(self) -> int:
+        return self._registry.integral("engine.crank_window_ticks")
+
+    def _pressure_gate(self) -> Dict[str, Any]:
+        """The first two gates: pressure established and latch clear."""
+
+        return blocker(
+            pressure_checks(
+                pressure_bar=self._lube.pressure_bar(),
+                established_bar=self._lube.established_threshold(),
+                latched=self._lube.latch_engaged(),
+            )
+        )
+
     def checks(self) -> List[Dict[str, Any]]:
         return evaluate(
             pressure_bar=self._lube.pressure_bar(),
             established_bar=self._lube.established_threshold(),
             latched=self._lube.latch_engaged(),
+            cranked=self.cranking(),
+            tick=self._clock.tick,
+            crank_tick=self._view.crank_tick(),
+            window_ticks=self.crank_window_ticks(),
+            crank_pressure_bar=self._view.crank_pressure_bar(),
         )
 
     def gate_report(self) -> Dict[str, Any]:
@@ -38,7 +66,31 @@ class EngineService:
     def crank(self) -> Dict[str, Any]:
         if self.running():
             raise OrderViolation("prime mover is already running")
-        return {"engine": self.state()}
+        if self.cranking() and self._crank_fresh():
+            raise OrderViolation("prime mover is already cranking")
+        closed = self._pressure_gate()
+        if not closed["passed"]:
+            raise EngineGateClosed(closed["gate"], gate=closed["gate"], detail=closed["detail"])
+        record = self._log.append(
+            KIND_ENGINE_CRANK,
+            generation=self._registry.combine(
+                (
+                    "lube.established_pressure_bar",
+                    "lube.latch_clear_margin_bar",
+                    "engine.crank_window_ticks",
+                )
+            ),
+            payload={"pressure_bar": self._lube.pressure_bar(), "tick": self._clock.tick},
+            tick=self._clock.tick,
+        )
+        self._log.commit(tick=self._clock.tick)
+        return {"engine": "cranking", "pressure_bar": self._lube.pressure_bar(), "record": record.record_id}
+
+    def _crank_fresh(self) -> bool:
+        crank_tick = self._view.crank_tick()
+        if crank_tick is None:
+            return False
+        return 0 <= self._clock.tick - crank_tick <= self.crank_window_ticks()
 
     def start(self) -> Dict[str, Any]:
         if self.running():
@@ -49,7 +101,13 @@ class EngineService:
         rpm = hz_to_rpm(self._registry.value("gov.target_hz"))
         record = self._log.append(
             KIND_ENGINE_START,
-            generation=self._registry.combine(("lube.established_pressure_bar", "gov.target_hz")),
+            generation=self._registry.combine(
+                (
+                    "lube.established_pressure_bar",
+                    "engine.crank_window_ticks",
+                    "gov.target_hz",
+                )
+            ),
             payload={"pressure_bar": self._lube.pressure_bar(), "rpm": rpm},
             tick=self._clock.tick,
         )
@@ -73,6 +131,8 @@ class EngineService:
         return {
             "engine": self.state(),
             "running": self.running(),
+            "cranking": self.cranking(),
+            "crank_tick": self._view.crank_tick(),
             "target_rpm": rpm,
             "gate": self.gate_report(),
         }

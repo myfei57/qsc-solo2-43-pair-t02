@@ -13,6 +13,9 @@
     dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 14px; }
     dt { color: #8697ab; }
     dd { margin: 0; text-align: right; }
+    ul { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+    li { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+    .gate-detail { color: #8697ab; font-size: 12px; margin-left: auto; text-align: right; }
     .lamp { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; background: #4c5766; }
     .on { background: #48d07a; }
     .warn { background: #e0a13a; }
@@ -32,6 +35,10 @@
     <section>
       <h2>machine</h2>
       <dl id="machine"></dl>
+    </section>
+    <section>
+      <h2>start conditions</h2>
+      <ul id="gates"></ul>
     </section>
     <section>
       <h2>store</h2>
@@ -59,11 +66,38 @@
       fetch("/api/state").then(function (r) { return r.json(); }).then(function (state) {
         fill("machine", {
           prime_mover: state.engine,
+          crank_tick: state.crank_tick === null ? "-" : state.crank_tick,
           line_breaker: state.breaker,
           oil_pressure_bar: state.lube_pressure_bar,
           excitation_v: state.excitation_v,
           load_kw: state.load_kw,
           online: state.online
+        });
+      });
+      fetch("/api/engine").then(function (r) { return r.json(); }).then(function (engine) {
+        const list = document.getElementById("gates");
+        list.innerHTML = "";
+        engine.gate.checks.forEach(function (check) {
+          const item = document.createElement("li");
+          const lamp = document.createElement("span");
+          lamp.className = "lamp " + (check.passed ? "on" : "bad");
+          const name = document.createElement("span");
+          name.textContent = check.gate;
+          const detail = document.createElement("span");
+          detail.className = "gate-detail";
+          if (check.gate === "crank.complete") {
+            detail.textContent = check.detail.cranked
+              ? "age " + check.detail.age_ticks + "/" + check.detail.window_ticks + " ticks"
+              : "not barred over";
+          } else if (check.detail.pressure_bar !== undefined) {
+            detail.textContent = check.detail.pressure_bar + " / >= " + check.detail.required_bar + " bar";
+          } else {
+            detail.textContent = check.passed ? "clear" : "engaged";
+          }
+          item.appendChild(lamp);
+          item.appendChild(name);
+          item.appendChild(detail);
+          list.appendChild(item);
         });
       });
       fetch("/api/meta").then(function (r) { return r.json(); }).then(function (meta) {

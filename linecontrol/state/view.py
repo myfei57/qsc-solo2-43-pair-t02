@@ -31,6 +31,15 @@ class MachineView:
     def running(self) -> bool:
         return self.state().engine == "running"
 
+    def cranking(self) -> bool:
+        return self.state().engine == "cranking"
+
+    def crank_tick(self):
+        return self.state().crank_tick
+
+    def crank_pressure_bar(self):
+        return self.state().crank_pressure_bar
+
     def breaker(self) -> str:
         return self.state().breaker
 

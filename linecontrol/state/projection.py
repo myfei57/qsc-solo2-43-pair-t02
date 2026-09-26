@@ -11,6 +11,7 @@ from ..store.kinds import (
     KIND_BREAKER_LATCH_RELEASE,
     KIND_BREAKER_OPEN,
     KIND_BREAKER_TRIP,
+    KIND_ENGINE_CRANK,
     KIND_ENGINE_START,
     KIND_ENGINE_STOP,
     KIND_GOV_ADJUST,
@@ -33,6 +34,8 @@ class MachineState:
     excitation_v: float = 0.0
     load_kw: float = 0.0
     target_hz: float = 50.0
+    crank_tick: Optional[int] = None
+    crank_pressure_bar: Optional[float] = None
     last_tick: int = 0
     records_applied: int = 0
 
@@ -56,6 +59,8 @@ class MachineState:
             "excitation_v",
             "load_kw",
             "target_hz",
+            "crank_tick",
+            "crank_pressure_bar",
             "last_tick",
             "records_applied",
         ):
@@ -73,6 +78,8 @@ class MachineState:
             "excitation_v": self.excitation_v,
             "load_kw": self.load_kw,
             "target_hz": self.target_hz,
+            "crank_tick": self.crank_tick,
+            "crank_pressure_bar": self.crank_pressure_bar,
             "last_tick": self.last_tick,
             "records_applied": self.records_applied,
             "online": self.online,
@@ -122,10 +129,16 @@ class StateProjector:
         working.last_tick = max(working.last_tick, record.tick)
         working.records_applied += 1
         kind = record.kind
-        if kind == KIND_ENGINE_START:
+        if kind == KIND_ENGINE_CRANK:
+            working.engine = "cranking"
+            working.crank_tick = int(payload.get("tick", record.tick))
+            working.crank_pressure_bar = float(payload.get("pressure_bar", 0.0))
+        elif kind == KIND_ENGINE_START:
             working.engine = "running"
         elif kind == KIND_ENGINE_STOP:
             working.engine = "stopped"
+            working.crank_tick = None
+            working.crank_pressure_bar = None
         elif kind == KIND_LUBE_PRESSURE:
             working.lube_pressure_bar = float(payload.get("bar", 0.0))
         elif kind == KIND_LUBE_LATCH_SET:
