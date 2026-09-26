@@ -34,6 +34,10 @@
       <dl id="machine"></dl>
     </section>
     <section>
+      <h2>start gate</h2>
+      <ul id="gate" style="list-style:none;margin:0;padding:0;font-size:14px;"></ul>
+    </section>
+    <section>
       <h2>store</h2>
       <dl id="store"></dl>
     </section>
@@ -64,6 +68,19 @@
           excitation_v: state.excitation_v,
           load_kw: state.load_kw,
           online: state.online
+        });
+      });
+      fetch("/api/engine").then(function (r) { return r.json(); }).then(function (engine) {
+        const list = document.getElementById("gate");
+        list.innerHTML = "";
+        engine.gate.checks.forEach(function (check) {
+          const item = document.createElement("li");
+          const lamp = document.createElement("span");
+          lamp.className = "lamp " + (check.passed ? "on" : "bad");
+          item.appendChild(lamp);
+          item.appendChild(document.createTextNode(
+            check.gate + " (" + (check.passed ? "passed" : "pending") + ")"));
+          list.appendChild(item);
         });
       });
       fetch("/api/meta").then(function (r) { return r.json(); }).then(function (meta) {

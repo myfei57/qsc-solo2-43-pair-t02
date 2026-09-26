@@ -4,9 +4,15 @@ from typing import Any, Dict, List
 
 from ..ns.units import hz_to_rpm
 from ..runtime.errors import OrderViolation
-from ..store.kinds import KIND_ENGINE_START, KIND_ENGINE_STOP
+from ..store.kinds import KIND_ENGINE_CRANK, KIND_ENGINE_START, KIND_ENGINE_STOP
 from .errors import EngineGateClosed, EngineNotRunning
-from .gate import blocker, evaluate
+from .gate import blocker, crank_blocker, evaluate
+
+CRANK_GENERATION_KEYS = (
+    "lube.established_pressure_bar",
+    "lube.low_pressure_bar",
+    "lube.latch_clear_margin_bar",
+)
 
 
 class EngineService:
@@ -23,11 +29,15 @@ class EngineService:
     def running(self) -> bool:
         return self.state() == "running"
 
+    def cranking(self) -> bool:
+        return self.state() == "cranking"
+
     def checks(self) -> List[Dict[str, Any]]:
         return evaluate(
             pressure_bar=self._lube.pressure_bar(),
             established_bar=self._lube.established_threshold(),
             latched=self._lube.latch_engaged(),
+            cranked=self.cranking(),
         )
 
     def gate_report(self) -> Dict[str, Any]:
@@ -38,7 +48,19 @@ class EngineService:
     def crank(self) -> Dict[str, Any]:
         if self.running():
             raise OrderViolation("prime mover is already running")
-        return {"engine": self.state()}
+        if self.cranking():
+            raise OrderViolation("prime mover is already cranking")
+        stopped = crank_blocker(self.checks())
+        if not stopped["passed"]:
+            raise EngineGateClosed(stopped["gate"], gate=stopped["gate"], detail=stopped["detail"])
+        record = self._log.append(
+            KIND_ENGINE_CRANK,
+            generation=self._registry.combine(CRANK_GENERATION_KEYS),
+            payload={"pressure_bar": self._lube.pressure_bar()},
+            tick=self._clock.tick,
+        )
+        self._log.commit(tick=self._clock.tick)
+        return {"engine": "cranking", "record": record.record_id}
 
     def start(self) -> Dict[str, Any]:
         if self.running():
@@ -73,6 +95,7 @@ class EngineService:
         return {
             "engine": self.state(),
             "running": self.running(),
+            "cranking": self.cranking(),
             "target_rpm": rpm,
             "gate": self.gate_report(),
         }

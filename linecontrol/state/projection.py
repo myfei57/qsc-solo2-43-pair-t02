@@ -11,6 +11,7 @@ from ..store.kinds import (
     KIND_BREAKER_LATCH_RELEASE,
     KIND_BREAKER_OPEN,
     KIND_BREAKER_TRIP,
+    KIND_ENGINE_CRANK,
     KIND_ENGINE_START,
     KIND_ENGINE_STOP,
     KIND_GOV_ADJUST,
@@ -122,7 +123,9 @@ class StateProjector:
         working.last_tick = max(working.last_tick, record.tick)
         working.records_applied += 1
         kind = record.kind
-        if kind == KIND_ENGINE_START:
+        if kind == KIND_ENGINE_CRANK:
+            working.engine = "cranking"
+        elif kind == KIND_ENGINE_START:
             working.engine = "running"
         elif kind == KIND_ENGINE_STOP:
             working.engine = "stopped"

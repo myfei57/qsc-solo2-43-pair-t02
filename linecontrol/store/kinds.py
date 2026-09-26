@@ -5,6 +5,7 @@ from ..runtime.errors import ValidationError
 KIND_SYNC_BASELINE = "sync.baseline"
 KIND_SYNC_PERSIST = "sync.persist"
 KIND_SYNC_COMMIT = "sync.commit"
+KIND_ENGINE_CRANK = "engine.crank"
 KIND_ENGINE_START = "engine.start"
 KIND_ENGINE_STOP = "engine.stop"
 KIND_LUBE_PRESSURE = "lube.pressure"
@@ -34,6 +35,7 @@ DATA_KINDS = (
     KIND_SYNC_BASELINE,
     KIND_SYNC_PERSIST,
     KIND_SYNC_COMMIT,
+    KIND_ENGINE_CRANK,
     KIND_ENGINE_START,
     KIND_ENGINE_STOP,
     KIND_LUBE_PRESSURE,
